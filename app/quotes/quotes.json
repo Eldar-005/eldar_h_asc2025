@@ -1,0 +1,42 @@
+[
+    {
+        "topic": "life",
+        "lang": "en",
+        "quote": "Life is what happens when you're busy making other plans. — John Lennon"
+    },
+    {
+        "topic": "life",
+        "lang": "az",
+        "quote": "Həyat, başqa planlar qurarkən başımıza gələnlərdir. — Con Lennon"
+    },
+    {
+        "topic": "success",
+        "lang": "en",
+        "quote": "Success is not final, failure is not fatal: it is the courage to continue that counts. — Winston Churchill"
+    },
+    {
+        "topic": "success",
+        "lang": "az",
+        "quote": "Uğur son deyil, uğursuzluq ölümcül deyil: davam etmək cəsarəti əsl uğurdur. — Uinston Çörçill"
+    },
+    {
+        "topic": "wisdom",
+        "lang": "az",
+        "quote": "Elə yaşa ki, öləndə yox, unudulanda peşman olasan. — Məhəmməd Füzuli"
+    },
+    {
+        "topic": "education",
+        "lang": "en",
+        "quote": "Education is the most powerful weapon which you can use to change the world. — Nelson Mandela"
+    },
+    {
+        "topic": "education",
+        "lang": "az",
+        "quote": "Təhsil dünyanı dəyişdirmək üçün istifadə edilə biləcək ən güclü silahdır. — Nelson Mandela"
+    },
+    {
+        "topic": "patriotism",
+        "lang": "az",
+        "quote": "Vətən sevgisi imandandır. — Heydər Əliyev"
+    }
+]
