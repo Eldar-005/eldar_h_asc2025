@@ -79,3 +79,39 @@ This repository satisfies the competition deliverables:
 ✅ Hosted on GitHub
 
 ✅ Includes source code, documentation, and README
+
+## Notes on Response Quality
+
+This bot uses a free-tier Hugging Face Inference API with open-source models like `gpt2` or `tiiuae/falcon-rw-1b`. Due to the lightweight nature of these models, some responses may occasionally be inconsistent or lack deep contextual understanding. This is expected behavior under the competition's free API constraints and does not reflect implementation errors.
+
+🚀 Main && Bonus Features
+User Activity Logging
+The bot automatically logs user IDs, usernames, and the last seen time into a local SQLite database each time a message is received. This helps track user interaction over time.
+
+Language Selection
+Users can switch between English and Azerbaijani using the /lang command, and the bot will respond in the chosen language.
+
+AI Style Responses
+The bot can respond in different styles such as a kid, teacher, pirate, robot, poet, or programmer. This makes interactions more dynamic and entertaining.
+
+Fallback to Local Quotes
+If the AI model fails or returns an error, the bot retrieves a quote from a local quotes.json file to ensure a response is always delivered.
+
+Topic-based Quote Generation
+By using /cite [topic], users can get inspirational or thought-provoking quotes either from the AI or from the local dataset.
+
+🧑‍💻 How to Use
+Set Language
+Use /lang az or /lang en to set your preferred language.
+
+Get a Quote
+Use /cite [topic] to receive a quote about the chosen topic. Example:
+
+
+/cite success
+Chat with the AI
+Use /ai [style] [prompt] to ask the bot something in a specific tone. Available styles include: kid, teacher, pirate, robot, poet, programmer, philosopher, journalist, comedian, storyteller, and scientist. Example:
+
+/ai philosopher What is the meaning of life?
+Basic Prompt (No Style)
+You can also simply use /ai [prompt] without specifying a style.

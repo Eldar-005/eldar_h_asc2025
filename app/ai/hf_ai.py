@@ -1,78 +1,79 @@
-import os  # For working with environment variables
-import requests  # For sending HTTP requests
-from dotenv import load_dotenv  # For loading environment variables from a .env file
+import os
+import requests
+from dotenv import load_dotenv
 
-# Load environment variables from a .env file
+# Load environment variables from .env file
 load_dotenv()
-
-# Retrieve the Hugging Face API key from environment variables
 HF_API_KEY = os.getenv("HF_API_KEY")
 
-def style_prompt(user_prompt, style=None, mode="chat"):
-    """This function customizes the user prompt based on the requested style and mode."""
-    
-    # For "quote" mode, generate a specific quote request
-    if mode == "quote":
-        return f"Give a deep, original quote about the topic: '{user_prompt}'. Keep it under 25 words."
+# Raise an error if the API key is missing
+if not HF_API_KEY:
+    raise ValueError("❌ HF_API_KEY not found in the .env file!")
 
-    # A dictionary mapping styles to their corresponding prompt structures
+def style_prompt(user_prompt, style=None, mode="chat", lang="en"):
+    # Quote mode returns a short meaningful quote in the selected language
+    if mode == "quote":
+        return (
+            f"Write a meaningful and short quote about: '{user_prompt}'." if lang == "en"
+            else f"Mövzu haqqında mənalı və qısa bir sitat yaz: '{user_prompt}'."
+        )
+
+    # Predefined prompt styles for different personalities or tones
     styles = {
-        "kid": f"Imagine you're a 7-year-old child who loves asking questions. Explain in a fun and simple way: {user_prompt}",
-        "teacher": f"Explain this like a physics teacher to high school students: {user_prompt}",
+        "kid": f"Imagine you're a 7-year-old kid. Explain it in a fun and simple way: {user_prompt}",
+        "teacher": f"Explain like a high school physics teacher: {user_prompt}",
         "pirate": f"Talk like a pirate and explain: {user_prompt}",
-        "poet": f"Write a short, touching poem about: {user_prompt}",
+        "poet": f"Write a short emotional poem about: {user_prompt}",
         "scientist": f"Explain scientifically and clearly: {user_prompt}",
-        "robot": f"Respond like a logical robot without emotions: {user_prompt}",
-        "storyteller": f"Turn this into a creative short story: {user_prompt}",
+        "robot": f"Respond like a logical robot with no emotions: {user_prompt}",
+        "storyteller": f"Turn this into a short creative story: {user_prompt}",
         "programmer": f"Explain this to a beginner programmer: {user_prompt}",
         "philosopher": f"Analyze this deeply like a philosopher: {user_prompt}",
         "journalist": f"Summarize the topic like a news article: {user_prompt}",
-        "comedian": f"Answer with humor like a stand-up comedian: {user_prompt}"
+        "comedian": f"Be funny like a stand-up comedian while explaining: {user_prompt}",
     }
 
-    # Return the customized prompt based on the selected style, or the original user prompt if no style is selected
+    # Return the styled prompt or fallback to original
     return styles.get(style, user_prompt)
 
-def hf_response(prompt, style=None, mode="chat"):
-    """This function sends a request to the Hugging Face API to get a response."""
-    
-    # Prepare the prompt with the requested style and mode
-    styled_prompt = style_prompt(prompt, style, mode)
+def hf_response(prompt, style=None, mode="chat", lang="en"):
+    # Format the prompt according to style and language
+    styled_prompt = style_prompt(prompt, style, mode, lang)
 
-    # Headers for the HTTP request, including the authorization token and content type
     headers = {
         "Authorization": f"Bearer {HF_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    # The payload to send in the POST request, including the styled prompt and parameters for AI generation
     payload = {
-        "inputs": styled_prompt,  # The text prompt for AI
+        "inputs": styled_prompt,
         "parameters": {
-            "max_new_tokens": 150,  # Maximum number of tokens in the generated response
-            "temperature": 0.7  # Controls randomness of the response (higher = more random)
+            "max_new_tokens": 150,
+            "temperature": 0.5
         }
     }
 
-    # Send the POST request to the Hugging Face API
-    response = requests.post(
-        "https://api-inference.huggingface.co/models/google/flan-t5-small",  # Hugging Face model endpoint
-        headers=headers,
-        json=payload
-    )
-
     try:
-        # Parse the JSON response from the API
+        # Send POST request to Hugging Face Inference API
+        response = requests.post(
+            "https://api-inference.huggingface.co/models/google/flan-t5-base",
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
         result = response.json()
 
-        # Check if the response is a list (expected result type)
+        # Handle different possible response formats
         if isinstance(result, list):
-            return result[0].get("generated_text", "No response generated.")
-        # Check if the response contains an error
+            return result[0].get("generated_text", "⚠️ Empty response received.")
+        elif isinstance(result, dict) and "generated_text" in result:
+            return result["generated_text"]
         elif "error" in result:
-            return f"Error from AI: {result['error']}"
+            return f"❌ AI error: {result['error']}"
         else:
-            return "Unexpected AI response."
+            return "⚠️ Unexpected response received."
+
+    except requests.exceptions.Timeout:
+        return "❌ Connection timed out."
     except Exception as e:
-        # Return an error message if the response could not be parsed
-        return f"Parsing error: {e}"
+        return f"❌ Exception occurred: {str(e)}"

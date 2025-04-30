@@ -1,106 +1,115 @@
-import os  # For accessing environment variables
-import discord  # Main library for creating a Discord bot
-import json  # For handling JSON data
-import random  # For selecting random quotes
-from dotenv import load_dotenv  # For loading environment variables from .env file
-from app.ai.hf_ai import hf_response  # Import AI response generation function
-from app.db.database import init_db, add_user  # Import database functions
+from app.ai.hf_ai import hf_response  
+from app.db.database import init_db, add_user
+import discord
+import json
+import random
+import os
+from dotenv import load_dotenv
+from datetime import datetime
+import pytz  # For timezone handling
 
-load_dotenv()  # Load environment variables from .env
-init_db()  # Initialize the database (creates necessary tables if they do not exist)
+load_dotenv()
+init_db()
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")  # Fetch Discord bot token from environment
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+user_langs = {}  # Dictionary to store user language preferences
 
-# Global user language preferences (stores user language settings)
-user_langs = {}
-
+# Load quotes from local JSON file
 def load_quotes():
-    """Load quotes from the JSON file."""
     with open("app/quotes/quotes.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
-quotes_data = load_quotes()  # Load the quotes at the start
+quotes_data = load_quotes()
 
+# Get a quote from JSON file based on topic and language
 def get_quote_from_json(topic, lang="en"):
-    """Fetch a random quote from the JSON file based on the topic and language."""
     matching_quotes = [q["quote"] for q in quotes_data if q["topic"] == topic and q["lang"] == lang]
     if not matching_quotes:
-        return None  # If no matching quote, return None
-    return random.choice(matching_quotes)  # Return a random quote
+        return None
+    return random.choice(matching_quotes)
+
 
 class MyClient(discord.Client):
-    """Custom client class for handling Discord bot events."""
-    
     async def on_ready(self):
-        """Event triggered when the bot successfully connects to Discord."""
-        print(f"[OK] Logged in as {self.user}")  # Log bot's username
+        print(f"[OK] Logged in as {self.user}")
 
     async def on_message(self, message):
         """Event triggered whenever a message is sent to the server."""
         if message.author == self.user:  # Ignore bot's own messages
             return
 
-        add_user(str(message.author.id), str(message.author))  # Add user to the database if not already
+        # Get the current timestamp in Asia/Baku timezone
+        timestamp = datetime.now(pytz.timezone("Asia/Baku")).strftime("%d.%m.%Y %H:%M")
 
-        content = message.content.strip()  # Clean the message content
+        # Add user to the database with timestamp
+        add_user(str(message.author.id), str(message.author), timestamp)
+
+        content = message.content.strip()  # Clean message content
 
         # Command to change language
         if content.startswith("/lang"):
             parts = content.split(" ")
-            if len(parts) > 1 and parts[1] in ["az", "en"]:  # Check if language is valid
-                user_langs[str(message.author.id)] = parts[1]  # Set user language preference
-                await message.channel.send(f"🌐 Dil seçildi: `{parts[1]}`")  # Acknowledge language change
+            if len(parts) > 1 and parts[1] in ["az", "en"]:  # Check if language code is valid
+                user_langs[str(message.author.id)] = parts[1]  # Save user's preferred language
+                await message.channel.send(f"🌐 Language set to: `{parts[1]}`")
             else:
-                await message.channel.send("⚠️ İstifadə: `/lang az` və ya `/lang en`")  # Incorrect command format
+                await message.channel.send("⚠️ Usage: `/lang az` or `/lang en`")
             return
 
-        # Command to fetch a citation
+        # Command to fetch a quote
         if content.startswith("/cite"):
             parts = content.split(" ", 1)
             if len(parts) < 2:
-                await message.channel.send("⚠️ İstifadə: `/cite mövzu` (məsələn: `/cite life`)")  # Missing topic
+                await message.channel.send("⚠️ Usage: `/cite topic` (e.g. `/cite life`)")
                 return
 
-            topic = parts[1].strip().lower()  # Get the topic of the citation
-            lang = user_langs.get(str(message.author.id), "en")  # Get user language, default is "en"
+            topic = parts[1].strip().lower()  # Extract topic
+            lang = user_langs.get(str(message.author.id), "en")  # Get preferred language or default to English
 
             try:
-                # First try fetching from AI
-                ai_quote = hf_response(topic, mode="quote")
-                if ai_quote and "error" not in ai_quote.lower():  # If AI provides a valid quote
-                    await message.channel.send(f"🤖 AI sitatı:\n{ai_quote}")
+                # First try to get AI-generated quote
+                ai_quote = hf_response(topic, mode="quote", lang=lang)
+                if ai_quote and "error" not in ai_quote.lower() and ai_quote != "i was a success /lang az":
+                    await message.channel.send(f"🤖 AI quote:\n{ai_quote}")
                 else:
-                    raise Exception("AI quote not available")  # If AI fails, fallback to JSON quotes
-            except:
-                # Fallback to local quotes if AI fails
+                    raise Exception("AI failed to provide a valid quote")
+            except Exception as e:
+                # If AI fails, fallback to local JSON quote
+                print(f"AI error: {e}")
                 local_quote = get_quote_from_json(topic, lang)
                 if local_quote:
-                    await message.channel.send(f"📜 JSON sitatı:\n{local_quote}")  # Send JSON quote
+                    await message.channel.send(f"📜 JSON quote:\n{local_quote}")
                 else:
-                    await message.channel.send("❌ Sitat tapılmadı.")  # If no quote is found
+                    await message.channel.send("❌ Quote not found.")
 
             return
 
         # AI-style chat response command
         if content.startswith(("/ai", "/bot", "/chatgpt")):
             parts = content.split(" ", 2)
-            style = parts[1] if len(parts) > 2 else None  # Get the style (if provided)
-            prompt = parts[2] if len(parts) > 2 else parts[1] if len(parts) > 1 else ""  # Get the prompt
+            if len(parts) < 2:
+                await message.channel.send("⚠️ Please provide a prompt after the command.")
+                return
 
-            if not prompt:  # If no prompt is provided, request one from the user
+            style = parts[1] if len(parts) > 2 else None  # Optional style
+            prompt = parts[2] if len(parts) > 2 else parts[1]  # The prompt itself
+
+            if not prompt:
                 await message.channel.send("⚠️ Please provide a message.")
                 return
 
             try:
-                # Try to generate a response from AI
+                # Generate AI response
                 response = hf_response(prompt, style, mode="chat")
-                await message.channel.send(f"💬 Answer: {response}")  # Send AI's response
+                await message.channel.send(f"💬 Response: {response}")
             except Exception as e:
-                await message.channel.send(f"❌ Error: {e}")  # Handle error and send error message
+                await message.channel.send(f"❌ Error: {e}")
 
-# Create bot client with necessary intents
+
+# Set required intents
 intents = discord.Intents.default()
-intents.message_content = True  # Ensure bot can read message content
+intents.message_content = True
 
+# Create and run the bot client
 client = MyClient(intents=intents)
-client.run(DISCORD_TOKEN)  # Start the bot with the provided Discord token
+client.run(DISCORD_TOKEN)
